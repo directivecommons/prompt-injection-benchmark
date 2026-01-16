@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pidb"
+version = "1.0.0"
+description = "Prompt Injection Detection Benchmark - Production-ready evaluation framework for LLM guardrails"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Alex Kuhn", email = "contact@directivecommons.org"},
+]
+keywords = ["prompt-injection", "llm-security", "ai-safety", "guardrails", "benchmark"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/directive-commons/prompt-injection-benchmark"
+Documentation = "https://github.com/directive-commons/prompt-injection-benchmark/blob/main/docs/"
+Repository = "https://github.com/directive-commons/prompt-injection-benchmark"
+Issues = "https://github.com/directive-commons/prompt-injection-benchmark/issues"
+
+[project.scripts]
+pidb-evaluate = "scripts.evaluate:main"
+pidb-validate = "scripts.validate_submission:main"
+
+[tool.setuptools.packages.find]
+include = ["scripts", "examples", "benchmark", "docs"]
