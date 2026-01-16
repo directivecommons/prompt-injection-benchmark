@@ -19,10 +19,33 @@ import time
 import argparse
 import importlib
 import statistics
+import sys
 from pathlib import Path
 from typing import Dict, List, Callable, Optional
 from collections import defaultdict
 from datetime import datetime, timezone
+
+
+# Configure stdout for UTF-8 on all platforms (Windows compatibility)
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except AttributeError:
+        # Python < 3.7 fallback
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
+
+def safe_print(*args, **kwargs):
+    """Print with fallback for platforms that don't support emoji."""
+    try:
+        safe_print(*args, **kwargs)
+    except UnicodeEncodeError:
+        # Fallback: strip emoji and print
+        text = ' '.join(str(arg) for arg in args)
+        # Remove emoji characters
+        text = text.encode('ascii', 'ignore').decode('ascii')
+        safe_print(text, **kwargs)
 
 
 SCHEMA_VERSION = "1.0.0"
@@ -123,13 +146,13 @@ class PIDBEvaluator:
         latencies = []
         runtime_errors = 0
         
-        print(f"Evaluating {len(self.test_cases)} test cases...")
-        print(f"Fail mode: {fail_mode} (on guardrail exception)")
+        safe_print(f"Evaluating {len(self.test_cases)} test cases...")
+        safe_print(f"Fail mode: {fail_mode} (on guardrail exception)")
         
         for i, test in enumerate(self.test_cases):
             # Progress indicator
             if (i + 1) % 50 == 0:
-                print(f"  Processed {i + 1}/{len(self.test_cases)} test cases...")
+                safe_print(f"  Processed {i + 1}/{len(self.test_cases)} test cases...")
             
             prompt = test['prompt']
             expected = test['expected_final']['decision']
@@ -156,12 +179,12 @@ class PIDBEvaluator:
                 elif fail_mode == 'allow':
                     should_block = False  # Fail open
                 else:  # fail_mode == 'error'
-                    print(f"\nERROR on test {test_id}: {e}")
-                    print(f"  Prompt: {prompt[:100]}...")
+                    safe_print(f"\nERROR on test {test_id}: {e}")
+                    safe_print(f"  Prompt: {prompt[:100]}...")
                     raise
                 
-                print(f"\n  Warning: Exception on test {test_id} (using fail mode: {fail_mode})")
-                print(f"    Error: {error}")
+                safe_print(f"\n  Warning: Exception on test {test_id} (using fail mode: {fail_mode})")
+                safe_print(f"    Error: {error}")
             
             latencies.append(latency)
             
@@ -183,11 +206,11 @@ class PIDBEvaluator:
                 'error': error
             })
         
-        print(f"  Completed {len(self.test_cases)} test cases.\n")
+        safe_print(f"  Completed {len(self.test_cases)} test cases.\n")
         
         if runtime_errors > 0:
-            print(f"⚠️  Warning: {runtime_errors} runtime errors occurred (handled with fail mode: {fail_mode})")
-            print(f"   Consider fixing these issues for accurate results.\n")
+            safe_print(f"⚠️  Warning: {runtime_errors} runtime errors occurred (handled with fail mode: {fail_mode})")
+            safe_print(f"   Consider fixing these issues for accurate results.\n")
         
         # Calculate comprehensive statistics
         stats = self._calculate_statistics(results, latencies, runtime_errors)
@@ -403,67 +426,67 @@ class PIDBEvaluator:
         errors = eval_results['error_breakdown']
         perf = eval_results.get('performance', {})
         
-        print("="*70)
-        print("PIDB EVALUATION REPORT")
-        print("="*70)
+        safe_print("="*70)
+        safe_print("PIDB EVALUATION REPORT")
+        safe_print("="*70)
         
         # Tool info
-        print(f"\n🔧 TOOL INFORMATION")
-        print(f"   Name: {tool['name']}")
-        print(f"   Version: {tool['version']}")
+        safe_print(f"\n🔧 TOOL INFORMATION")
+        safe_print(f"   Name: {tool['name']}")
+        safe_print(f"   Version: {tool['version']}")
         if 'organization' in tool:
-            print(f"   Organization: {tool['organization']}")
+            safe_print(f"   Organization: {tool['organization']}")
         
         # Test info
-        print(f"\n📋 TEST INFORMATION")
-        print(f"   Test Date: {run['test_date']}")
-        print(f"   Benchmark Version: {run['benchmark_version']}")
-        print(f"   Test Cases: {run['total_test_cases']}")
-        print(f"   Evaluator Version: {run['evaluator_version']}")
+        safe_print(f"\n📋 TEST INFORMATION")
+        safe_print(f"   Test Date: {run['test_date']}")
+        safe_print(f"   Benchmark Version: {run['benchmark_version']}")
+        safe_print(f"   Test Cases: {run['total_test_cases']}")
+        safe_print(f"   Evaluator Version: {run['evaluator_version']}")
         
         # Overall results
-        print(f"\n📊 OVERALL RESULTS")
-        print(f"   Accuracy: {overall['accuracy']:.1f}%")
-        print(f"   Passed: {overall['passed']}/{run['total_test_cases']}")
-        print(f"   Failed: {overall['failed']}/{run['total_test_cases']}")
+        safe_print(f"\n📊 OVERALL RESULTS")
+        safe_print(f"   Accuracy: {overall['accuracy']:.1f}%")
+        safe_print(f"   Passed: {overall['passed']}/{run['total_test_cases']}")
+        safe_print(f"   Failed: {overall['failed']}/{run['total_test_cases']}")
         
         # Error breakdown
-        print(f"\n❌ ERROR BREAKDOWN")
-        print(f"   False Negatives (missed attacks): {errors['false_negatives']} ({errors['false_negative_rate']:.1f}%)")
-        print(f"   False Positives (over-blocking): {errors['false_positives']} ({errors['false_positive_rate']:.1f}%)")
+        safe_print(f"\n❌ ERROR BREAKDOWN")
+        safe_print(f"   False Negatives (missed attacks): {errors['false_negatives']} ({errors['false_negative_rate']:.1f}%)")
+        safe_print(f"   False Positives (over-blocking): {errors['false_positives']} ({errors['false_positive_rate']:.1f}%)")
         
         if errors.get('runtime_errors', 0) > 0:
-            print(f"   ⚠️  Runtime Errors: {errors['runtime_errors']}")
+            safe_print(f"   ⚠️  Runtime Errors: {errors['runtime_errors']}")
         
         # Performance
         if perf:
-            print(f"\n⚡ PERFORMANCE")
-            print(f"   Average Latency: {perf['avg_latency_ms']:.1f}ms")
-            print(f"   Median Latency (P50): {perf['median_latency_ms']:.1f}ms")
-            print(f"   P95 Latency: {perf['p95_latency_ms']:.1f}ms")
-            print(f"   P99 Latency: {perf['p99_latency_ms']:.1f}ms")
-            print(f"   Throughput: {perf['throughput_rps']:.2f} requests/sec")
+            safe_print(f"\n⚡ PERFORMANCE")
+            safe_print(f"   Average Latency: {perf['avg_latency_ms']:.1f}ms")
+            safe_print(f"   Median Latency (P50): {perf['median_latency_ms']:.1f}ms")
+            safe_print(f"   P95 Latency: {perf['p95_latency_ms']:.1f}ms")
+            safe_print(f"   P99 Latency: {perf['p99_latency_ms']:.1f}ms")
+            safe_print(f"   Throughput: {perf['throughput_rps']:.2f} requests/sec")
         
         # By category (top/bottom 10)
-        print(f"\n📁 ACCURACY BY CATEGORY")
+        safe_print(f"\n📁 ACCURACY BY CATEGORY")
         by_cat = eval_results['by_category']
         sorted_cats = sorted(by_cat.items(), key=lambda x: x[1]['accuracy'])
         
-        print(f"\n   Bottom 10 (Weakest):")
+        safe_print(f"\n   Bottom 10 (Weakest):")
         for cat, stats in sorted_cats[:10]:
             acc = stats['accuracy']
             status = "✅" if acc >= 95 else "⚠️" if acc >= 85 else "🔴"
-            print(f"   {status} {cat:40s}: {acc:5.1f}% ({stats['correct']}/{stats['total']})")
+            safe_print(f"   {status} {cat:40s}: {acc:5.1f}% ({stats['correct']}/{stats['total']})")
         
         if len(sorted_cats) > 10:
-            print(f"\n   Top 10 (Strongest):")
+            safe_print(f"\n   Top 10 (Strongest):")
             for cat, stats in sorted_cats[-10:]:
                 acc = stats['accuracy']
                 status = "✅" if acc >= 95 else "⚠️" if acc >= 85 else "🔴"
-                print(f"   {status} {cat:40s}: {acc:5.1f}% ({stats['correct']}/{stats['total']})")
+                safe_print(f"   {status} {cat:40s}: {acc:5.1f}% ({stats['correct']}/{stats['total']})")
         
         # By severity
-        print(f"\n⚡ ACCURACY BY SEVERITY")
+        safe_print(f"\n⚡ ACCURACY BY SEVERITY")
         by_sev = eval_results['by_severity']
         for sev in ['critical', 'high', 'medium', 'low', 'null']:
             if sev in by_sev:
@@ -471,7 +494,7 @@ class PIDBEvaluator:
                 acc = stats['accuracy']
                 status = "✅" if acc >= 95 else "⚠️" if acc >= 85 else "🔴"
                 sev_label = sev if sev != 'null' else 'benign'
-                print(f"   {status} {sev_label:10s}: {acc:5.1f}% ({stats['correct']}/{stats['total']})")
+                safe_print(f"   {status} {sev_label:10s}: {acc:5.1f}% ({stats['correct']}/{stats['total']})")
         
         # Top failures (if available in internal data)
         if '_internal' in eval_results:
@@ -479,17 +502,17 @@ class PIDBEvaluator:
             fp_list = eval_results['_internal'].get('false_positives', [])
             
             if fn_list:
-                print(f"\n🔴 TOP 10 MISSED ATTACKS (False Negatives)")
+                safe_print(f"\n🔴 TOP 10 MISSED ATTACKS (False Negatives)")
                 for i, r in enumerate(fn_list[:10], 1):
                     sev = r.get('severity', 'N/A')
-                    print(f"   {i}. {r['test_id']} ({r['category']}, severity={sev})")
+                    safe_print(f"   {i}. {r['test_id']} ({r['category']}, severity={sev})")
             
             if fp_list:
-                print(f"\n🟡 TOP 10 INCORRECTLY BLOCKED (False Positives)")
+                safe_print(f"\n🟡 TOP 10 INCORRECTLY BLOCKED (False Positives)")
                 for i, r in enumerate(fp_list[:10], 1):
-                    print(f"   {i}. {r['test_id']} ({r['category']})")
+                    safe_print(f"   {i}. {r['test_id']} ({r['category']})")
         
-        print("\n" + "="*70)
+        safe_print("\n" + "="*70)
     
     def save_results(self, eval_results: Dict, output_path: str):
         """Save results conforming to Results Schema v1.0."""
@@ -517,8 +540,8 @@ class PIDBEvaluator:
         with open(output_path, 'w') as f:
             json.dump(schema_results, f, indent=2)
         
-        print(f"\n✅ Results saved to: {output_path}")
-        print(f"   (Schema v{SCHEMA_VERSION} compliant)")
+        safe_print(f"\n✅ Results saved to: {output_path}")
+        safe_print(f"   (Schema v{SCHEMA_VERSION} compliant)")
         
         # Save detailed results
         detailed_path = output_path.replace('.json', '_detailed.json')
@@ -532,7 +555,7 @@ class PIDBEvaluator:
             with open(detailed_path, 'w') as f:
                 json.dump(detailed_results, f, indent=2)
             
-            print(f"✅ Detailed results saved to: {detailed_path}")
+            safe_print(f"✅ Detailed results saved to: {detailed_path}")
 
 
 def load_guardrail_function(module_name: str, function_name: str) -> Callable:
@@ -642,21 +665,21 @@ Examples:
     
     args = parser.parse_args()
     
-    print("="*70)
-    print("PIDB EVALUATOR v1.0.0")
-    print("="*70)
+    safe_print("="*70)
+    safe_print("PIDB EVALUATOR v1.0.0")
+    safe_print("="*70)
     
     # Load guardrail function
-    print(f"\n🔧 Loading guardrail: {args.guardrail_module}.{args.guardrail_function}")
+    safe_print(f"\n🔧 Loading guardrail: {args.guardrail_module}.{args.guardrail_function}")
     guardrail_fn = load_guardrail_function(args.guardrail_module, args.guardrail_function)
     
     # Initialize evaluator
-    print(f"📋 Loading benchmark: {args.benchmark}")
+    safe_print(f"📋 Loading benchmark: {args.benchmark}")
     evaluator = PIDBEvaluator(args.benchmark)
-    print(f"   Loaded {len(evaluator.test_cases)} test cases")
+    safe_print(f"   Loaded {len(evaluator.test_cases)} test cases")
     
     # Run evaluation
-    print("\n▶️  Starting evaluation...\n")
+    safe_print("\n▶️  Starting evaluation...\n")
     eval_results = evaluator.evaluate(
         guardrail_fn,
         tool_name=args.tool_name,
@@ -674,11 +697,11 @@ Examples:
     # Save results
     evaluator.save_results(eval_results, args.output)
     
-    print("\n✅ Evaluation complete!")
-    print(f"\nNext steps:")
-    print(f"  1. Review results in {args.output}")
-    print(f"  2. Validate: python scripts/validate_submission.py {args.output}")
-    print(f"  3. Submit: See leaderboard/README.md for submission guidelines")
+    safe_print("\n✅ Evaluation complete!")
+    safe_print(f"\nNext steps:")
+    safe_print(f"  1. Review results in {args.output}")
+    safe_print(f"  2. Validate: python scripts/validate_submission.py {args.output}")
+    safe_print(f"  3. Submit: See leaderboard/README.md for submission guidelines")
 
 
 if __name__ == '__main__':
